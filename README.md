@@ -14,4 +14,12 @@ For Ubuntu 16.04:
 
    `pip install -r requirements.txt`
 
-4. Change the path argument in visualize.launch to the path to your working folder.
+
+## How to run the code
+
+1. Change the path argument in visualize.launch to the path to your working folder.
+
+2. `roslaunch visualize.launch`
+
+3. `python3 test_rrt.py` or `python3 test_rrt_connect.py`
+
