@@ -1,0 +1,13 @@
+<?xml version="1.0" ?>
+
+<launch>
+  <arg name="load_gripper" default="true" />
+  <!-- <arg name="path" default="/home/student/Documents/autonomy" /> -->
+  <arg name="path" default="/home/aaronguan/Desktop/Sampling_based_Planning_for_Robot_Arm" />
+
+  <param unless="$(arg load_gripper)" name="robot_description" command="$(find xacro)/xacro --inorder $(find franka_description)/robots/panda_arm.urdf.xacro" />
+  <param if="$(arg load_gripper)" name="robot_description" command="$(find xacro)/xacro --inorder $(find franka_description)/robots/panda_arm_hand.urdf.xacro" />
+
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
+  <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(arg path)/franka_visualization.rviz"/>
+</launch>
