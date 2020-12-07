@@ -50,7 +50,7 @@ class FrankaRobot:
 
     collision_box_shapes = np.array([
         [0.23, 0.2, 0.1],
-        [0.13, 0.12, 0.1], 
+        [0.13, 0.12, 0.1],
         [0.12, 0.1, 0.2],
         [0.15, 0.27, 0.11],
         [0.12, 0.1, 0.2],
@@ -192,7 +192,7 @@ class FrankaRobot:
         while np.linalg.norm(ee_error) > 1e-3:
             jacob = self.jacobian(joints)
             joints += alpha * jacob.T.dot(ee_error.T)
-            
+
             current_ee_pos = self.ee(joints)
             ee_error = desired_ee_pos - current_ee_pos
 
@@ -242,7 +242,7 @@ class FrankaRobot:
             # check if no separating planes exist
             if np.all([min_box_projs <= max_fbox_projs, max_box_projs >= min_fbox_projs]):
                 return True
-        
+
         return False
 
     def publish_joints(self, joints):
