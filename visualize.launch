@@ -3,7 +3,7 @@
 <launch>
   <arg name="load_gripper" default="true" />
   <!-- <arg name="path" default="/home/student/Documents/autonomy" /> -->
-  <arg name="path" default="/home/aaronguan/Desktop/Sampling_based_Planning_for_Robot_Arm" />
+  <arg name="path" default="/home/roscaar/Desktop/Sampling_based_Planning_for_Robot_Arm" />
 
   <param unless="$(arg load_gripper)" name="robot_description" command="$(find xacro)/xacro --inorder $(find franka_description)/robots/panda_arm.urdf.xacro" />
   <param if="$(arg load_gripper)" name="robot_description" command="$(find xacro)/xacro --inorder $(find franka_description)/robots/panda_arm_hand.urdf.xacro" />

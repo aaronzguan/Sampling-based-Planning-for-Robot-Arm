@@ -2,7 +2,7 @@ import argparse
 import numpy as np
 import rospy
 
-from franka_robot import FrankaRobot 
+from franka_robot import FrankaRobot
 from collision_boxes_publisher import CollisionBoxesPublisher
 from rrt_connect import RRTConnect
 
@@ -46,8 +46,8 @@ if __name__ == '__main__':
     desired_ee_rp = fr.ee(fr.home_joints)[3:5]
     def ee_upright_constraint(q):
         '''
-        TODO: Implement constraint function and its gradient. 
-        
+        TODO: Implement constraint function and its gradient.
+
         This constraint should enforce the end-effector stays upright.
         Hint: Use the roll and pitch angle in desired_ee_rp. The end-effector is upright in its home state.
 
@@ -64,7 +64,7 @@ if __name__ == '__main__':
         return err, grad
 
     '''
-    TODO: Fill in start and target joint positions 
+    TODO: Fill in start and target joint positions
     '''
     # joints_start = None
     # joints_target = None
@@ -76,7 +76,7 @@ if __name__ == '__main__':
     rrtc = RRTConnect(fr, is_in_collision)
     constraint = ee_upright_constraint
     plan = rrtc.plan(joints_start, joints_target, constraint)
-    
+
     collision_boxes_publisher = CollisionBoxesPublisher('collision_boxes')
     rate = rospy.Rate(10)
     i = 0
