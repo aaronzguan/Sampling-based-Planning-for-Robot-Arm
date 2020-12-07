@@ -15,3 +15,15 @@ For Ubuntu 16.04:
    `pip install -r requirements.txt`
 
 4. Change the path argument in visualize.launch to the path to your working folder.
+
+5. Run the RRT planner:
+
+   `python3 plan.py --rrt`
+
+   Run the CBIRRT planner:
+
+   `python3 plan.py --rrtc`
+
+   Run the PRM planner:
+
+   `python3 plan.py --prm`

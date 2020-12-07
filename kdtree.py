@@ -64,7 +64,7 @@ class KDTree:
 
     """
 
-    def __init__(self, k=2, capacity=10000, limits=None):
+    def __init__(self, k=2, capacity=100000, limits=None):
         self.node_list = [None] * capacity
         self.size = 0
         self.next_identifier = 0
@@ -200,6 +200,26 @@ class KDTree:
             return self.node_list[node_id][:6]
 
         return nearest_point(query, 0, get_properties, dist_fun)
+
+    def find_points_within_radius(self, query, radius, dist_fun=euclidean_dist):
+        result = []
+        for node_id in range(self.next_identifier):
+            dist = dist_fun(query, self.node_list[node_id].point)
+            if dist <= radius and dist != 0:
+                result.append((-dist, node_id))
+        import heapq
+        heapq.heapify(result)
+        return [item[1] for item in result]
+
+    def find_k_nearest_points(self, query, k, dist_fun=euclidean_dist):
+        result = []
+        for node_id in range(self.next_identifier):
+            dist = dist_fun(query, self.node_list[node_id].point)
+            result.append((-dist, node_id))
+        import heapq
+        heapq.heapify(result)
+        print(result[0][0])
+        return [item[1] for item in result[:k]]
 
 
 def nearest_point(query, root_id, get_properties, dist_fun=euclidean_dist):

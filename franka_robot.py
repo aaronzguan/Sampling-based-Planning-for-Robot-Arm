@@ -198,6 +198,47 @@ class FrankaRobot:
 
         return joints
 
+    def check_self_collision(self, joints):
+        '''
+        Arguments: joints represents the current location of the robot
+        Returns: A boolean where True means the arm has self-collision and false means that there are no collisions.
+        '''
+
+        franka_box_poses = self.get_collision_boxes_poses(joints)
+        for i, main_box_pose in enumerate(franka_box_poses):
+            mbox_pos = main_box_pose[:3, 3]
+            mbox_axes = main_box_pose[:3, :3]
+
+            mbox_vertex_offsets = self._collision_box_vertices_offset[i]
+            mbox_vertices = mbox_vertex_offsets.dot(mbox_axes.T) + mbox_pos
+
+            for j, other_box_pose in enumerate(franka_box_poses):
+                if j == i or (j >= i - 4 and j <= i + 4):
+                    continue
+
+                obox_pos = other_box_pose[:3, 3]
+                obox_axes = other_box_pose[:3, :3]
+                obox_vertex_offsets = self._collision_box_vertices_offset[j]
+                obox_vertices = obox_vertex_offsets.dot(obox_axes.T) + obox_pos
+
+                # construct axes
+                cross_product_pairs = np.array(list(product(mbox_axes.T, obox_axes.T)))
+                cross_axes = np.cross(cross_product_pairs[:, 0], cross_product_pairs[:, 1]).T
+                self._collision_proj_axes[:, :3] = mbox_axes
+                self._collision_proj_axes[:, 3:6] = obox_axes
+                self._collision_proj_axes[:, 6:] = cross_axes
+
+                # projection
+                mbox_projs = mbox_vertices.dot(self._collision_proj_axes)
+                obox_projs = obox_vertices.dot(self._collision_proj_axes)
+                min_mbox_projs, max_mbox_projs = mbox_projs.min(axis=0), mbox_projs.max(axis=0)
+                min_obox_projs, max_obox_projs = obox_projs.min(axis=0), obox_projs.max(axis=0)
+
+                # check if no separating planes exist
+                if np.all([min_mbox_projs <= max_obox_projs, max_mbox_projs >= min_obox_projs]):
+                    return True
+        return False
+
     def check_box_collision(self, joints, box):
         '''
         Arguments: joints represents the current location of the robot
