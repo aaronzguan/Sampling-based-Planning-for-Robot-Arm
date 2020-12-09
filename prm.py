@@ -5,11 +5,12 @@ from scipy.optimize import minimize, LinearConstraint, NonlinearConstraint
 import collections
 import heapq
 import pickle
+import itertools
 
 
 class SimpleGraph:
 
-    def __init__(self, dim, capacity=100000):
+    def __init__(self, dim, capacity=300000):
         self._edges = collections.defaultdict(list)
         self._kd = KDTree(dim, capacity)
         self.start_id = None
@@ -41,9 +42,6 @@ class SimpleGraph:
         """
         return self._kd.find_points_within_radius(point, radius)
 
-    def get_k_nearest_node(self, point, k):
-        return self._kd.find_k_nearest_points(point, k)
-
 
 class cell:
     def __init__(self):
@@ -56,10 +54,10 @@ class PRM:
         self._fr = fr
         self._is_in_collision = is_in_collision
 
-        self._q_step_size = 0.15
+        self._q_step_size = 0.1
         self._radius = 0.35
-        self._k = 3
-        self._max_n_nodes = int(20000)
+        self._k = 10
+        self._max_n_nodes = int(200000)
 
         self._project_step_size = 1e-1
         self._constraint_th = 1e-3
@@ -85,10 +83,8 @@ class PRM:
         q_proj = q0.copy()
         err, grad = constraint(q0)
         while err > self._constraint_th:
-            # print('The error is: ', err)
             J = self._fr.jacobian(q_proj)
             q_proj -= self._project_step_size * J.T.dot(grad)
-            # q_proj -= self._project_step_size * J.T.dot(np.linalg.inv(J.dot(J.T))).dot(grad)
             err, grad = constraint(q_proj)
         return q_proj
 
@@ -102,8 +98,8 @@ class PRM:
 
             # Add the new node to the graph if it is collision free
             if not self._is_in_collision(q_new):
-                neighbor_ids = graph.get_neighbor_within_radius(q_new, self._radius)
                 node_id = graph.insert_new_node(q_new)
+                neighbor_ids = graph.get_neighbor_within_radius(q_new, self._radius)
                 num_valid_neighbor = 0
                 for neighbor_id in neighbor_ids:
                     q_neighbor = graph.get_point(neighbor_id)
@@ -115,11 +111,76 @@ class PRM:
                             break
                 print('PRM: number of nodes: {}'.format(len(graph)))
                 print('PRM: number of edges {}'.format(num_edges))
-        print("Graph is built successfully!")
+        print("PRM: Graph is built successfully!")
+
+    def search(self, graph):
+
+        def get_heuristic(graph, cur_id, target_id, use_heur=False):
+            if use_heur:
+                return np.linalg.norm(graph.get_point(target_id) - graph.get_point(cur_id))
+            else:
+                return 1
+
+        road_map = collections.defaultdict(cell)  # stores the g_value, parent for the node
+        road_map[graph.start_id].g = 0
+
+        open_list = []
+        heapq.heappush(open_list, (0, graph.start_id))  # Min-Heap, [f_value, node_id]
+        close_list = set()
+
+        found_path = False
+
+        while open_list and not found_path:
+            _, cur_id = heapq.heappop(open_list)
+            if cur_id in close_list:
+                continue
+
+            close_list.add(cur_id)
+
+            # find the neighbor
+            neighbor_ids = graph.get_parent(cur_id)
+            for next_id in neighbor_ids:
+                if next_id == graph.target_id:
+                    print("Path is Found!")
+                    found_path = True
+                    road_map[graph.target_id].parent = cur_id
+                    break
+
+                if road_map[next_id].g > road_map[cur_id].g + \
+                        np.linalg.norm(graph.get_point(next_id) - graph.get_point(cur_id)):
+                    road_map[next_id].g = road_map[cur_id].g + \
+                                          np.linalg.norm(graph.get_point(next_id) - graph.get_point(cur_id))
+
+                    f_value = road_map[next_id].g + get_heuristic(graph, next_id, graph.target_id, use_heur=False)
+                    heapq.heappush(open_list, (-f_value, next_id))
+                    road_map[next_id].parent = cur_id
+
+        path = []
+        if found_path:
+            backward_path = [graph.get_point(graph.target_id)]
+            node_id = road_map[graph.target_id].parent
+            while node_id != -1:
+                backward_path.append(graph.get_point(node_id))
+                node_id = (road_map[node_id]).parent
+
+            path = backward_path[::-1]
+
+            print("PRM: Found a path! Path length is {}. ".format(len(path)))
+
+            path = [np.linspace(path[i], path[i + 1], int(np.linalg.norm(path[i + 1] - path[i]) / 0.01))
+                    for i in range(len(path) - 1)]
+            path = list(itertools.chain.from_iterable(path))
+            print("PRM: Smooth the path by interpolation. Final path length is {}.".format(len(path)))
+
+        else:
+            print('PRM: Was not able to find a path!')
+
+        return path
 
     def plan(self, q_start, q_target, constraint=None, reuse_graph=False):
         if reuse_graph:
             graph = pickle.load(open('graph.pickle', 'rb'))
+            print("PRM: Reuse the graph.")
         else:
             graph = SimpleGraph(len(q_start))
             s = time()
@@ -139,7 +200,7 @@ class PRM:
                 graph.add_edge(graph.start_id, neighbor_id)
 
         graph.target_id = graph.insert_new_node(q_target)
-        neighbor_ids = graph.get_neighbor_within_radius(q_target, 0.8)
+        neighbor_ids = graph.get_neighbor_within_radius(q_target, 0.85)
         print('PRM: Found neighbor {} with q_target'.format(len(neighbor_ids)))
         for neighbor_id in neighbor_ids:
             q_neighbor = graph.get_point(neighbor_id)
@@ -149,54 +210,10 @@ class PRM:
         print('PRM: Number of nodes connected with start: {}'.format(len(graph.get_parent(graph.start_id))))
         print('PRM: Number of nodes connected with target: {}'.format(len(graph.get_parent(graph.target_id))))
 
-        road_map = collections.defaultdict(cell)  # stores the g_value, parent for the node
-        road_map[graph.start_id].g = 0
-
-        open_list = []
-        heapq.heappush(open_list, (0, graph.start_id))  # Min-Heap, [f_value, node_id]
-        close_list = collections.defaultdict(bool)
-
-        found_path = False
-
-        while open_list and not found_path:
-            _, cur_id = heapq.heappop(open_list)
-            if close_list[cur_id]:
-                continue
-
-            close_list[cur_id] = True
-
-            # find the neighbor
-            neighbor_ids = graph.get_parent(cur_id)
-            for next_id in neighbor_ids:
-                if next_id == graph.target_id:
-                    print("Path is Found!")
-                    found_path = True
-                    road_map[graph.target_id].parent = cur_id
-                    break
-
-                if road_map[next_id].g > road_map[cur_id].g + \
-                        np.linalg.norm(graph.get_point(next_id) - graph.get_point(cur_id)):
-                    road_map[next_id].g = road_map[cur_id].g + \
-                                          np.linalg.norm(graph.get_point(next_id) - graph.get_point(cur_id))
-                    heapq.heappush(open_list, (-road_map[next_id].g - 1, next_id))
-                    road_map[next_id].parent = cur_id
-
-        path = []
-        if found_path:
-            backward_path = [q_target]
-            node_id = road_map[graph.target_id].parent
-            while node_id != -1:
-
-                backward_path.append(graph.get_point(node_id))
-                node_id = (road_map[node_id]).parent
-
-            path = backward_path[::-1]
-
-            print("PRM: Found a path! Path length is {}. ".format(len(path)))
-        else:
-            print('PRM: Was not able to find a path!')
+        path = self.search(graph)
 
         return path
+
 
 
 

@@ -213,7 +213,7 @@ class FrankaRobot:
             mbox_vertices = mbox_vertex_offsets.dot(mbox_axes.T) + mbox_pos
 
             for j, other_box_pose in enumerate(franka_box_poses):
-                if j == i or (j >= i - 4 and j <= i + 4):
+                if i - 4 <= j <= i + 4:
                     continue
 
                 obox_pos = other_box_pose[:3, 3]

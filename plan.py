@@ -26,13 +26,13 @@ if __name__ == '__main__':
     parser.add_argument('--rrt', '-rrt', type=str2bool, const=True, nargs='?', default=False, help="Use RRT?")
     parser.add_argument('--rrtc', '-rrtc', type=str2bool, const=True, nargs='?', default=False, help="Use RRT-Connect?")
     parser.add_argument('--prm', '-prm', type=str2bool, const=True, nargs='?', default=False, help="Use PRM?")
-    parser.add_argument('--reuse_graph', '-reuse_graph', type=str2bool, const=True, nargs='?', default=False, help="Use PRM?")
+    parser.add_argument('--reuse_graph', '-reuse_graph', type=str2bool, const=True, nargs='?', default=False, help="Reuse the graph for PRM?")
     args = parser.parse_args()
 
     np.random.seed(args.seed)
     fr = FrankaRobot()
 
-    rospy.init_node('planner_test4')
+    rospy.init_node('planner')
 
     '''
     TODO: Replace obstacle box w/ the box specs in your workspace:
@@ -121,5 +121,4 @@ if __name__ == '__main__':
         fr.publish_joints(joints)
         fr.publish_collision_boxes(joints)
         collision_boxes_publisher.publish_boxes(boxes)
-
         i += 1

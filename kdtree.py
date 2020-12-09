@@ -11,6 +11,7 @@ general method to find the nearest node for any kd-tree implementation.
 """
 import math
 from collections import deque, namedtuple
+import heapq
 
 
 def interval_condition(value, inf, sup, dist):
@@ -202,24 +203,65 @@ class KDTree:
         return nearest_point(query, 0, get_properties, dist_fun)
 
     def find_points_within_radius(self, query, radius, dist_fun=euclidean_dist):
-        result = []
-        for node_id in range(self.next_identifier):
-            dist = dist_fun(query, self.node_list[node_id].point)
-            if dist <= radius and dist != 0:
-                result.append((-dist, node_id))
-        import heapq
-        heapq.heapify(result)
-        return [item[1] for item in result]
+        def get_properties(node_id):
+            return self.node_list[node_id][:6]
+        return neighbor_within_radius(query, radius, 0, get_properties, dist_fun)
 
-    def find_k_nearest_points(self, query, k, dist_fun=euclidean_dist):
-        result = []
-        for node_id in range(self.next_identifier):
-            dist = dist_fun(query, self.node_list[node_id].point)
-            result.append((-dist, node_id))
-        import heapq
-        heapq.heapify(result)
-        print(result[0][0])
-        return [item[1] for item in result[:k]]
+
+def neighbor_within_radius(query, radius, root_id, get_properties, dist_fun=euclidean_dist):
+    k = len(query)
+    neighbors = []
+
+    # stack_node: stack of identifiers to nodes within a region that
+    # contains the query.
+    # stack_look: stack of identifiers to nodes within a region that
+    # does not contains the query.
+    stack_node = deque([root_id])
+    stack_look = deque()
+
+    while stack_node or stack_look:
+
+        if stack_node:
+            node_id = stack_node.pop()
+            look_node = False
+        else:
+            node_id = stack_look.pop()
+            look_node = True
+
+        point, region, axis, active, left, right = get_properties(node_id)
+
+        # Should consider this node?
+        # As it is within a region that does not contains the query, maybe
+        # there is no chance to find a closer node in this region
+        if look_node:
+            inside_region = True
+            for i in range(k):
+                inside_region &= interval_condition(query[i], region[i][0],
+                                                    region[i][1], radius)
+            if not inside_region:
+                continue
+
+        # Update the distance only if the node is active.
+        if active:
+            node_distance = dist_fun(query, point)
+            if node_distance <= radius and node_distance != 0:
+                neighbors.append((-node_distance, node_id))
+
+        if query[axis] < point[axis]:
+            side_node = left
+            side_look = right
+        else:
+            side_node = right
+            side_look = left
+
+        if side_node is not None:
+            stack_node.append(side_node)
+
+        if side_look is not None:
+            stack_look.append(side_look)
+
+    heapq.heapify(neighbors)
+    return [item[1] for item in neighbors]
 
 
 def nearest_point(query, root_id, get_properties, dist_fun=euclidean_dist):
