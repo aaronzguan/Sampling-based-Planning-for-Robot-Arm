@@ -1,6 +1,7 @@
 from time import time
 import numpy as np
 from scipy.optimize import minimize, LinearConstraint, NonlinearConstraint
+import random
 
 from kdtree import KDTree
 from franka_robot import FrankaRobot
@@ -46,6 +47,7 @@ class RRTConnect:
         self._q_step_size = 0.015
         self._connect_dist = 0.1
         self._max_n_nodes = int(1e5)
+        self._smoothed_nodes = 100
 
     def sample_valid_joints(self):
         q = np.random.random(self._fr.num_dof) * (self._fr.joint_limits_high - self._fr.joint_limits_low) + self._fr.joint_limits_low
@@ -107,6 +109,32 @@ class RRTConnect:
             else:
                 return qs_old, qs_old_id
 
+    def getDistance(self, p):
+        dist = 0
+        prev = p[0]
+        for q in p[1:]:
+            dist += np.linalg.norm(q - prev)
+            prev = q
+        return dist
+
+    def smoothPath(self, path, constraint):
+        for num_smoothed in range(self._smoothed_nodes):
+            print(num_smoothed)
+            tree = SimpleTree(len(path[0]))
+            i = random.randint(0, len(path) - 2)
+            j = random.randint(i + 1, len(path) - 1)
+            q_reach, q_reach_id = self.constrained_extend(tree, path[i], path[j], None, constraint)
+            if not (q_reach == path[j]).all():
+                continue
+            # print(i, j, q_reach_id)
+            temp_path = tree.construct_path_to_root(q_reach_id)
+            # print(temp_path[::-1])
+            # print(path[i:j+1])
+            if self.getDistance(temp_path) < self.getDistance(path[i:j+1]):
+                path = path[:i+1] + temp_path[::-1] + path[j+1:]
+        return path
+
+
     def plan(self, q_start, q_target, constraint=None):
         tree_0 = SimpleTree(len(q_start))
         tree_0.insert_new_node(q_start)
@@ -157,5 +185,5 @@ class RRTConnect:
         else:
             path = []
             print('RRT: Was not able to find a path!')
-
+        #path = self.smoothPath(path, constraint)
         return np.array(path).tolist()
