@@ -47,7 +47,7 @@ class RRTConnect:
         self._q_step_size = 0.015
         self._connect_dist = 0.1
         self._max_n_nodes = int(1e5)
-        self._smoothed_nodes = 100
+        self._smoothed_nodes = 30
 
     def sample_valid_joints(self):
         q = np.random.random(self._fr.num_dof) * (self._fr.joint_limits_high - self._fr.joint_limits_low) + self._fr.joint_limits_low
@@ -102,7 +102,8 @@ class RRTConnect:
             qs_old_id = qs_id
 
             qs = qs + min(self._q_step_size, np.linalg.norm(q_target - qs)) * (q_target - qs) / np.linalg.norm(q_target - qs)
-            qs = self.project_to_constraint(qs, constraint)
+            if constraint:
+                qs = self.project_to_constraint(qs, constraint)
 
             if not self._is_in_collision(qs) and self._is_seg_valid(qs_old, qs):
                 qs_id = tree.insert_new_node(qs, qs_old_id)
