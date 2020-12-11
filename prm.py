@@ -1,7 +1,6 @@
 from time import time
 import numpy as np
 from kdtree import KDTree
-from scipy.optimize import minimize, LinearConstraint, NonlinearConstraint
 import collections
 import heapq
 import pickle
@@ -10,7 +9,7 @@ import itertools
 
 class SimpleGraph:
 
-    def __init__(self, dim, capacity=300000):
+    def __init__(self, dim, capacity=100000):
         self._edges = collections.defaultdict(list)
         self._kd = KDTree(dim, capacity)
         self.start_id = None
@@ -55,9 +54,9 @@ class PRM:
         self._is_in_collision = is_in_collision
 
         self._q_step_size = 0.1
-        self._radius = 0.35
-        self._k = 10
-        self._max_n_nodes = int(200000)
+        self._radius = 0.5
+        self._k = 15
+        self._max_n_nodes = int(150000)
 
         self._project_step_size = 1e-1
         self._constraint_th = 1e-3
@@ -113,6 +112,31 @@ class PRM:
                 print('PRM: number of edges {}'.format(num_edges))
         print("PRM: Graph is built successfully!")
 
+    def smooth_path(self, path):
+        """
+        Use cut-triangle-edge scheme and interpolation to smooth the path
+        """
+        edge_list = collections.deque()
+        path_length = len(path)
+        for i in range(1, path_length - 1):
+            q0 = (path[i - 1] + path[i]) / 2
+            q1 = (path[i] + path[i + 1]) / 2
+            edge_list.append((q0, q1, i))
+
+        rewire_count = 0
+        while edge_list:
+            q0, q1, id = edge_list.popleft()
+            if self._is_seg_valid(q0, q1):
+                path = path[:id + rewire_count] + [q0] + [q1] + path[id + 1 + rewire_count:]
+                rewire_count += 1
+        print("PRM: Number of rewired nodes is {}.".format(rewire_count))
+
+        # Interpolating between two nodes
+        path = [np.linspace(path[i], path[i + 1], int(np.linalg.norm(path[i + 1] - path[i]) / 0.01))
+                for i in range(len(path) - 1)]
+        path = list(itertools.chain.from_iterable(path))
+        return path
+
     def search(self, graph):
 
         def get_heuristic(graph, cur_id, target_id, use_heur=False):
@@ -167,10 +191,8 @@ class PRM:
 
             print("PRM: Found a path! Path length is {}. ".format(len(path)))
 
-            path = [np.linspace(path[i], path[i + 1], int(np.linalg.norm(path[i + 1] - path[i]) / 0.01))
-                    for i in range(len(path) - 1)]
-            path = list(itertools.chain.from_iterable(path))
-            print("PRM: Smooth the path by interpolation. Final path length is {}.".format(len(path)))
+            path = self.smooth_path(path)
+            print("PRM: Final path length after smmoth is {}.".format(len(path)))
 
         else:
             print('PRM: Was not able to find a path!')
@@ -182,7 +204,7 @@ class PRM:
             graph = pickle.load(open('graph.pickle', 'rb'))
             print("PRM: Reuse the graph.")
         else:
-            graph = SimpleGraph(len(q_start))
+            graph = SimpleGraph(len(q_start), capacity=180000)
             s = time()
             self.preprocess(graph, constraint)
             print('PRM: Build the graph in {:.2f}s'.format(time() - s))

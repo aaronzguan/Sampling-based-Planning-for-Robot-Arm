@@ -22,10 +22,11 @@ def str2bool(v):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seed', '-s', type=int, default=4)
+    parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--rrt', '-rrt', type=str2bool, const=True, nargs='?', default=False, help="Use RRT?")
     parser.add_argument('--rrtc', '-rrtc', type=str2bool, const=True, nargs='?', default=False, help="Use RRT-Connect?")
     parser.add_argument('--prm', '-prm', type=str2bool, const=True, nargs='?', default=False, help="Use PRM?")
+    parser.add_argument('--map2', '-map2', type=str2bool, const=True, nargs='?', default=False, help="Use map 2?")
     parser.add_argument('--reuse_graph', '-reuse_graph', type=str2bool, const=True, nargs='?', default=False, help="Reuse the graph for PRM?")
     args = parser.parse_args()
 
@@ -38,22 +39,39 @@ if __name__ == '__main__':
     TODO: Replace obstacle box w/ the box specs in your workspace:
     [x, y, z, r, p, y, sx, sy, sz]
     '''
-    boxes = np.array([
-        # obstacle
-        # [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0.4, 0, 0.25, 0, 0, 0, 0.3, 0.05, 0.5],
-        # sides
-        [0.15, 0.46, 0.5, 0, 0, 0, 1.2, 0.01, 1.1],
-        [0.15, -0.46, 0.5, 0, 0, 0, 1.2, 0.01, 1.1],
-        # back
-        [-0.41, 0, 0.5, 0, 0, 0, 0.01, 1, 1.1],
-        # front
-        [0.75, 0, 0.5, 0, 0, 0, 0.01, 1, 1.1],
-        # top
-        [0.2, 0, 1, 0, 0, 0, 1.2, 1, 0.01],
-        # bottom
-        [0.2, 0, -0.05, 0, 0, 0, 1.2, 1, 0.01]
-    ])
+    if not args.map2:
+        boxes = np.array([
+            # obstacle
+            # [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0.4, 0, 0.25, 0, 0, 0, 0.3, 0.05, 0.5],
+            # sides
+            [0.15, 0.46, 0.5, 0, 0, 0, 1.2, 0.01, 1.1],
+            [0.15, -0.46, 0.5, 0, 0, 0, 1.2, 0.01, 1.1],
+            # back
+            [-0.41, 0, 0.5, 0, 0, 0, 0.01, 1, 1.1],
+            # front
+            [0.75, 0, 0.5, 0, 0, 0, 0.01, 1, 1.1],
+            # top
+            [0.2, 0, 1, 0, 0, 0, 1.2, 1, 0.01],
+            # bottom
+            [0.2, 0, -0.05, 0, 0, 0, 1.2, 1, 0.01]
+        ])
+    else:
+        boxes = np.array([
+            # obstacle
+            [0.7, 0, 0.6, 0, 0, 0, 0.45, 0.3, 0.05],
+            # sides
+            [0.15, 0.66, 0.65, 0, 0, 0, 1.2, 0.01, 1.5],
+            [0.15, -0.66, 0.65, 0, 0, 0, 1.2, 0.01, 1.5],
+            # back
+            [-0.41, 0, 0.65, 0, 0, 0, 0.01, 1.4, 1.5],
+            # front
+            [0.75, 0, 0.65, 0, 0, 0, 0.01, 1.4, 1.5],
+            # top
+            [0.2, 0, 1.35, 0, 0, 0, 1.2, 1.4, 0.01],
+            # bottom
+            [0.2, 0, -0.05, 0, 0, 0, 1.2, 1.4, 0.01]
+        ])
 
 
     def is_in_collision(joints):
@@ -87,14 +105,23 @@ if __name__ == '__main__':
         grad = np.asarray([0, 0, 0, 2 * (ee[3] - desired_ee_rp[0]), 2 * (ee[4] - desired_ee_rp[1]), 0])
         return err, grad
 
+    def get_plan_quality(plan):
+        dist = 0
+        for i in range(len(plan) - 1):
+            dist += np.linalg.norm(np.array(plan[i+1]) - np.array(plan[i]))
+        return dist
 
     '''
     TODO: Fill in start and target joint positions 
     '''
-    joints_start = fr.home_joints.copy()
-    joints_start[0] = -np.deg2rad(45)
-    joints_target = joints_start.copy()
-    joints_target[0] = np.deg2rad(45)
+    if not args.map2:
+        joints_start = fr.home_joints.copy()
+        joints_start[0] = -np.deg2rad(45)
+        joints_target = joints_start.copy()
+        joints_target[0] = np.deg2rad(45)
+    else:
+        joints_start = np.array([0, np.pi/6, 0, -2*np.pi / 3, 0, 5*np.pi / 6, np.pi / 4])
+        joints_target = np.array([0, 0, 0, -np.pi / 4, 0, np.pi / 4, np.pi / 4])
 
     if args.rrt:
         print("RRT: RRT planner is selected!")
@@ -112,12 +139,16 @@ if __name__ == '__main__':
     else:
         plan = planner.plan(joints_start, joints_target, constraint)
 
+    path_quality = get_plan_quality(plan)
+    print("Path quality: {}".format(path_quality))
+
     collision_boxes_publisher = CollisionBoxesPublisher('collision_boxes')
     rate = rospy.Rate(10)
     i = 0
     while not rospy.is_shutdown():
         rate.sleep()
         joints = plan[i % len(plan)]
+        # joints = joints_start
         fr.publish_joints(joints)
         fr.publish_collision_boxes(joints)
         collision_boxes_publisher.publish_boxes(boxes)

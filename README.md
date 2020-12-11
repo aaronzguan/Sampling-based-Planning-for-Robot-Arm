@@ -18,12 +18,16 @@ For Ubuntu 16.04:
 
 5. Run the RRT planner:
 
-   `python3 plan.py --rrt`
+   `python3 plan.py --rrt` or `python3 plan.py --rrt --map2` for using the second map.
 
    Run the CBIRRT planner:
 
-   `python3 plan.py --rrtc`
+   `python3 plan.py --rrtc` or `python3 plan.py --rrtc --map2` for using the second map.
 
    Run the PRM planner:
 
-   `python3 plan.py --prm`
+   `python3 plan.py --prm` or `python3 plan.py --prm --map2` for using the second map.
+
+   If reusing the graph created before:
+
+   `python3 plan.py --prm --reuse_graph`

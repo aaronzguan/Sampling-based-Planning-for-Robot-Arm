@@ -43,8 +43,8 @@ class RRT:
         self._project_step_size = 1e-1  # Default:1e-1
         self._constraint_th = 1e-3  # Default: 1e-3
 
-        self._q_step_size = 0.02  # Default: 0.01
-        self._target_p = 0.2  # Default: 0.3
+        self._q_step_size = 0.045  # Default: 0.02
+        self._target_p = 0.2  # Default: 0.2
         self._max_n_nodes = int(1e5)
 
     def sample_valid_joints(self):
@@ -123,7 +123,7 @@ class RRT:
             nearest_node_id = tree.get_nearest_node(q_sample)[0]
             q_near = tree.get_point(nearest_node_id)
             q_new = q_near + min(self._q_step_size, np.linalg.norm(q_sample - q_near)) * (q_sample - q_near) / np.linalg.norm(q_sample - q_near)
-            		
+
             # Check if the new node has collision with the constraint
             q_new = self.project_to_constraint(q_new, constraint)
 
@@ -148,7 +148,7 @@ class RRT:
 
         s = time()
         for n_nodes_sampled in range(self._max_n_nodes):
-            if n_nodes_sampled > 0 and n_nodes_sampled % 100 == 0:
+            if n_nodes_sampled > 0 and n_nodes_sampled % 50 == 0:
                 print('RRT: Sampled {} nodes'.format(n_nodes_sampled))
 
             reached_target, node_id_new = self.extend(tree, q_target, constraint)
