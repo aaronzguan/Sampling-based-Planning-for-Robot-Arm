@@ -72,6 +72,7 @@ if __name__ == '__main__':
     joints_start[0] = -np.deg2rad(45)
     #joints_start = np.array([0, -np.pi / 4, 0, -3 * np.pi / 4, 0, np.pi / 2, np.pi / 4])
     joints_target = np.array([0, 0, 0, -np.pi / 4, 0, np.pi / 4, np.pi / 4])
+    joints_target = np.array([0, -np.pi / 4, 0, -3 * np.pi / 4, 0, np.pi / 2, np.pi / 4])
     joints_target[0] = -np.deg2rad(45)
     #joints_start[0] = -np.deg2rad(45)
     #joints_target = joints_start.copy()

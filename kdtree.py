@@ -64,7 +64,7 @@ class KDTree:
 
     """
 
-    def __init__(self, k=2, capacity=100000, limits=None):
+    def __init__(self, k=2, capacity=1000000, limits=None):
         self.node_list = [None] * capacity
         self.size = 0
         self.next_identifier = 0

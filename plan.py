@@ -38,20 +38,35 @@ if __name__ == '__main__':
     [x, y, z, r, p, y, sx, sy, sz]
     '''
     boxes = np.array([
+        # [0.45, -0.45, 0.7, 0, 0, 0.78, 0.6, 0.6, 0.05],
+        # # obstacle
+        # # # [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        # # [0.4, 0, 0.25, 0, 0, 0, 0.3, 0.05, 0.5],
+        # # sides
+        # [-0.7, 0.7, 0.75, 0, 0, 0.78, 2, 0.01, 1.6],
+        # [0.7, -0.7, 0.75, 0, 0, 0.78, 2, 0.01, 1.6],
+        # # back
+        # [-0.7, -0.7, 0.75, 0, 0, 0.78, 0.01, 2, 1.6],
+        # # front
+        # [0.7, 0.7, 0.75, 0, 0, 0.78, 0.01, 2, 1.6],
+        # # top
+        # [0, 0, 1.5, 0, 0, 0.78, 2, 2, 0.01],
+        # # bottom
+        # [0, 0, -0.05, 0, 0, 0.78, 2, 2, 0.01]
+
         # obstacle
-        [0.45, -0.45, 0.7, 0, 0, 0.78, 0.6, 0.6, 0.05],
-        # [0.4, 0, 0.25, 0, 0, 0, 0.3, 0.05, 0.5],
+        [0.4, 0, 0.25, 0, 0, 0, 0.3, 0.05, 0.5],
         # sides
-        [-0.7, 0.7, 0.75, 0, 0, 0.78, 2, 0.01, 1.6],
-        [0.7, -0.7, 0.75, 0, 0, 0.78, 2, 0.01, 1.6],
+        [0.15, 0.46, 0.5, 0, 0, 0, 1.2, 0.01, 1.1],
+        [0.15, -0.46, 0.5, 0, 0, 0, 1.2, 0.01, 1.1],
         # back
-        [-0.7, -0.7, 0.75, 0, 0, 0.78, 0.01, 2, 1.6],
+        [-0.41, 0, 0.5, 0, 0, 0, 0.01, 1, 1.1],
         # front
-        [0.7, 0.7, 0.75, 0, 0, 0.78, 0.01, 2, 1.6],
+        [0.75, 0, 0.5, 0, 0, 0, 0.01, 1, 1.1],
         # top
-        [0, 0, 1.5, 0, 0, 0.78, 2, 2, 0.01],
+        [0.2, 0, 1, 0, 0, 0, 1.2, 1, 0.01],
         # bottom
-        [0, 0, -0.05, 0, 0, 0.78, 2, 2, 0.01]
+        [0.2, 0, -0.05, 0, 0, 0, 1.2, 1, 0.01]
     ])
 
 
@@ -66,6 +81,11 @@ if __name__ == '__main__':
 
     desired_ee_rp = fr.ee(fr.home_joints)[3:5]
 
+    def get_plan_quality(plan):
+        dist = 0
+        for i in range(len(plan) - 1):
+            dist += np.linalg.norm(np.array(plan[i+1]) - np.array(plan[i]))
+        return dist
 
     def ee_upright_constraint(q):
         '''
@@ -89,8 +109,11 @@ if __name__ == '__main__':
     '''
     joints_start = fr.home_joints.copy()
     joints_start[0] = -np.deg2rad(45)
-    joints_target = np.array([0, 0, 0, -np.pi / 4, 0, np.pi / 4, np.pi / 4])
-    joints_target[0] = -np.deg2rad(45)
+    # joints_target = np.array([0, 0, 0, -np.pi / 4, 0, np.pi / 4, np.pi / 4])
+    # joints_target[0] = -np.deg2rad(45)
+
+    joints_target = joints_start.copy()
+    joints_target[0] = np.deg2rad(45)
 
     if args.rrt:
         print("RRT: RRT planner is selected!")
@@ -106,7 +129,8 @@ if __name__ == '__main__':
         plan = planner.plan(joints_start, joints_target, constraint, reuse_graph=args.reuse_graph)
     else:
         plan = planner.plan(joints_start, joints_target, constraint)
-
+    path_quality = get_plan_quality(plan)
+    print("Path quality: {}".format(path_quality))
     collision_boxes_publisher = CollisionBoxesPublisher('collision_boxes')
     rate = rospy.Rate(10)
     i = 0

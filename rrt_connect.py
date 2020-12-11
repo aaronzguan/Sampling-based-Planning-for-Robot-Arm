@@ -36,6 +36,8 @@ class SimpleTree:
             node_id = self.get_parent(node_id)
 
         return path
+    def get_num_nodes(self):
+        return len(self._parents_map)
 
 
 class RRTConnect:
@@ -44,39 +46,46 @@ class RRTConnect:
         self._fr = fr
         self._is_in_collision = is_in_collision
 
-        self._q_step_size = 0.015
+        self._q_step_size = 0.04
         self._connect_dist = 0.1
         self._max_n_nodes = int(1e5)
-        self._smoothed_nodes = 30
+        self._smoothed_nodes = 60
+        self._constraint_th = 1e-3  # Default: 1e-3
+        self._project_step_size = 1e-1  # Default:1e-1
 
     def sample_valid_joints(self):
         q = np.random.random(self._fr.num_dof) * (self._fr.joint_limits_high - self._fr.joint_limits_low) + self._fr.joint_limits_low
         return q
 
-    def project_to_constraint(self, q0, constraint):
-        def f(q):
-            return constraint(q)[0]
+    def project_to_constraint(self, q, constraint):
+        '''
+        TODO: Implement projecting a configuration to satisfy a constraint function using gradient descent.
 
-        def df(q):
-            c_grad = constraint(q)[1]
-            q_grad = self._fr.jacobian(q).T @ c_grad
-            return q_grad
+        Please use the following parameters in your code:
+            self._project_step_size - learning rate for gradient descent
+            self._constraint_th - a threshold lower than which the constraint is considered to be satisfied
 
-        def c_f(q):
-            diff_q = q - q0
-            return diff_q @ diff_q
+        Input:
+            q - the point to be projected
+            constraint - a function of q that returns (constraint_value, constraint_gradient)
+                         constraint_value is a scalar - it is 0 when the constraint is satisfied
+                         constraint_gradient is a vector of length 6 - it is the gradient of the
+                                constraint value w.r.t. the end-effector pose (x, y, z, r, p, y)
 
-        def c_df(q):
-            diff_q = q - q0
-            return 0.5 * diff_q
+        Output:
+            q_proj - the projected point
 
-        c_joint_limits = LinearConstraint(np.eye(len(q0)), self._fr.joint_limits_low, self._fr.joint_limits_high)
-        c_close_to_q0 = NonlinearConstraint(c_f, 0, self._q_step_size ** 2, jac=c_df)
-
-        res = minimize(f, q0, jac=df, method='SLSQP', tol=0.1,
-                        constraints=(c_joint_limits, c_close_to_q0))
-
-        return res.x
+        You can obtain the Jacobian by calling self._fr.jacobian(q)
+        '''
+        q_proj = q.copy()
+        err, grad = constraint(q)
+        while err > self._constraint_th:
+            # print('The error is: ', err)
+            J = self._fr.jacobian(q_proj)
+            q_proj -= self._project_step_size * J.T.dot(grad)
+            # q_proj -= self._project_step_size * J.T.dot(np.linalg.inv(J.dot(J.T))).dot(grad)
+            err, grad = constraint(q_proj)
+        return q_proj
 
     def _is_seg_valid(self, q0, q1):
         qs = np.linspace(q0, q1, int(np.linalg.norm(q1 - q0) / self._q_step_size))
@@ -120,7 +129,6 @@ class RRTConnect:
 
     def smoothPath(self, path, constraint):
         for num_smoothed in range(self._smoothed_nodes):
-            print(num_smoothed)
             tree = SimpleTree(len(path[0]))
             i = random.randint(0, len(path) - 2)
             j = random.randint(i + 1, len(path) - 1)
@@ -170,6 +178,7 @@ class RRTConnect:
 
         # if not q_start_is_tree_0:
         #     tree_0, tree_1 = tree_1, tree_0
+        print('RRTC: {} nodes extended in {:.2f}s'.format(tree_0.get_num_nodes() + tree_1.get_num_nodes(), time() - s))
 
         if reached_target:
             tree_0_backward_path = tree_0.construct_path_to_root(qa_reach_id)
@@ -186,5 +195,5 @@ class RRTConnect:
         else:
             path = []
             print('RRT: Was not able to find a path!')
-        #path = self.smoothPath(path, constraint)
+        path = self.smoothPath(path, constraint)
         return np.array(path).tolist()

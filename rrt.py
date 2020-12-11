@@ -16,7 +16,7 @@ class SimpleTree:
         self._parents_map[node_id] = parent
 
         return node_id
-        
+
     def get_parent(self, child_id):
         return self._parents_map[child_id]
 
@@ -25,6 +25,15 @@ class SimpleTree:
 
     def get_nearest_node(self, point):
         return self._kd.find_nearest_point(point)
+
+    def construct_path_to_root(self, leaf_node_id):
+        path = []
+        node_id = leaf_node_id
+        while node_id is not None:
+            path.append(self.get_point(node_id))
+            node_id = self.get_parent(node_id)
+
+        return path
 
 
 class RRT:
@@ -43,9 +52,16 @@ class RRT:
         self._project_step_size = 1e-1  # Default:1e-1
         self._constraint_th = 1e-3  # Default: 1e-3
 
-        self._q_step_size = 0.02  # Default: 0.01
+        self._q_step_size = 0.045  # Default: 0.01
         self._target_p = 0.2  # Default: 0.3
         self._max_n_nodes = int(1e5)
+
+    def _is_seg_valid(self, q0, q1):
+        qs = np.linspace(q0, q1, int(np.linalg.norm(q1 - q0) / self._q_step_size))
+        for q in qs:
+            if self._is_in_collision(q):
+                return False
+        return True
 
     def sample_valid_joints(self):
         '''
@@ -96,7 +112,7 @@ class RRT:
         '''
         TODO: Implement the constraint extend function.
 
-        Input: 
+        Input:
             tree - a SimpleTree object containing existing nodes
             q_target - configuration of the target state, in shape of [1, num_dof]
             constraint - a constraint function used by project_to_constraint
@@ -123,7 +139,7 @@ class RRT:
             nearest_node_id = tree.get_nearest_node(q_sample)[0]
             q_near = tree.get_point(nearest_node_id)
             q_new = q_near + min(self._q_step_size, np.linalg.norm(q_sample - q_near)) * (q_sample - q_near) / np.linalg.norm(q_sample - q_near)
-            		
+
             # Check if the new node has collision with the constraint
             q_new = self.project_to_constraint(q_new, constraint)
 
@@ -142,6 +158,32 @@ class RRT:
 
         return target_reached, new_node_id
 
+
+    def constrained_extend(self, tree, q_near, q_target, q_near_id, constraint=None):
+        '''
+        TODO: Implement extend for RRT Connect
+        - Only perform self.project_to_constraint if constraint is not None
+        - Use self._is_seg_valid, self._q_step_size, self._connect_dist
+        '''
+        qs = qs_old = q_near
+        qs_id = qs_old_id = q_near_id
+        while True:
+            if (q_target == qs).all():
+                return qs, qs_id
+            if np.linalg.norm(q_target - qs) > np.linalg.norm(qs_old - q_target):
+                return qs_old, qs_old_id
+            qs_old = qs
+            qs_old_id = qs_id
+
+            qs = qs + min(self._q_step_size, np.linalg.norm(q_target - qs)) * (q_target - qs) / np.linalg.norm(q_target - qs)
+            if constraint:
+                qs = self.project_to_constraint(qs, constraint)
+
+            if not self._is_in_collision(qs) and self._is_seg_valid(qs_old, qs):
+                qs_id = tree.insert_new_node(qs, qs_old_id)
+            else:
+                return qs_old, qs_old_id
+
     def plan(self, q_start, q_target, constraint=None):
         tree = SimpleTree(len(q_start))
         tree.insert_new_node(q_start)
@@ -150,25 +192,29 @@ class RRT:
         for n_nodes_sampled in range(self._max_n_nodes):
             if n_nodes_sampled > 0 and n_nodes_sampled % 100 == 0:
                 print('RRT: Sampled {} nodes'.format(n_nodes_sampled))
+            if np.random.random(1) < self._target_p:
+                q_rand = q_target
+            else:
+                q_rand = self.sample_valid_joints()
 
-            reached_target, node_id_new = self.extend(tree, q_target, constraint)
+            node_id_near = tree.get_nearest_node(q_rand)[0]
+            q_near = tree.get_point(node_id_near)
+            q_reach, q_reach_id = self.constrained_extend(tree, q_near, q_rand, node_id_near, constraint)
+            # reached_target, node_id_new = self.extend(tree, q_target, constraint)
 
-            if reached_target:
+            if np.linalg.norm(q_reach - q_target) < self._q_step_size:
+                reached_target = True
                 break
 
         print('RRT: Sampled {} nodes in {:.2f}s'.format(n_nodes_sampled, time() - s))
 
         path = []
         if reached_target:
-            backward_path = [q_target]
-            node_id = node_id_new
-            while node_id is not None:
-                backward_path.append(tree.get_point(node_id))
-                node_id = tree.get_parent(node_id)
-            path = backward_path[::-1]
-
+            tree_backward_path = tree.construct_path_to_root(q_reach_id)
+            path = tree_backward_path[::-1]
+            path.append(q_target)
             print('RRT: Found a path! Path length is {}.'.format(len(path)))
         else:
             print('RRT: Was not able to find a path!')
-        
+
         return path
