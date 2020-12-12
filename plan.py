@@ -27,6 +27,7 @@ if __name__ == '__main__':
     parser.add_argument('--rrtc', '-rrtc', type=str2bool, const=True, nargs='?', default=False, help="Use RRT-Connect?")
     parser.add_argument('--prm', '-prm', type=str2bool, const=True, nargs='?', default=False, help="Use PRM?")
     parser.add_argument('--map2', '-map2', type=str2bool, const=True, nargs='?', default=False, help="Use map 2?")
+    parser.add_argument('--map3', '-map3', type=str2bool, const=True, nargs='?', default=False, help="Use map 3?")
     parser.add_argument('--reuse_graph', '-reuse_graph', type=str2bool, const=True, nargs='?', default=False, help="Reuse the graph for PRM?")
     args = parser.parse_args()
 
@@ -39,7 +40,40 @@ if __name__ == '__main__':
     TODO: Replace obstacle box w/ the box specs in your workspace:
     [x, y, z, r, p, y, sx, sy, sz]
     '''
-    if not args.map2:
+    if args.map3:
+        boxes = np.array([
+            # obstacle
+            # [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0.45, -0.45, 0.7, 0, 0, 0.78, 0.6, 0.6, 0.05],
+            # sides
+            [-0.7, 0.7, 0.75, 0, 0, 0.78, 2, 0.01, 1.6],
+            [0.7, -0.7, 0.75, 0, 0, 0.78, 2, 0.01, 1.6],
+            # back
+            [-0.7, -0.7, 0.75, 0, 0, 0.78, 0.01, 2, 1.6],
+            # front
+            [0.7, 0.7, 0.75, 0, 0, 0.78, 0.01, 2, 1.6],
+            # top
+            [0, 0, 1.5, 0, 0, 0.78, 2, 2, 0.01],
+            # bottom
+            [0, 0, -0.05, 0, 0, 0.78, 2, 2, 0.01]
+        ])
+    elif args.map2:
+        boxes = np.array([
+            # obstacle
+            [0.7, 0, 0.6, 0, 0, 0, 0.45, 0.3, 0.05],
+            # sides
+            [0.15, 0.66, 0.65, 0, 0, 0, 1.2, 0.01, 1.5],
+            [0.15, -0.66, 0.65, 0, 0, 0, 1.2, 0.01, 1.5],
+            # back
+            [-0.41, 0, 0.65, 0, 0, 0, 0.01, 1.4, 1.5],
+            # front
+            [0.75, 0, 0.65, 0, 0, 0, 0.01, 1.4, 1.5],
+            # top
+            [0.2, 0, 1.35, 0, 0, 0, 1.2, 1.4, 0.01],
+            # bottom
+            [0.2, 0, -0.05, 0, 0, 0, 1.2, 1.4, 0.01]
+        ])
+    else:
         boxes = np.array([
             # obstacle
             # [0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -55,22 +89,6 @@ if __name__ == '__main__':
             [0.2, 0, 1, 0, 0, 0, 1.2, 1, 0.01],
             # bottom
             [0.2, 0, -0.05, 0, 0, 0, 1.2, 1, 0.01]
-        ])
-    else:
-        boxes = np.array([
-            # obstacle
-            [0.7, 0, 0.6, 0, 0, 0, 0.45, 0.3, 0.05],
-            # sides
-            [0.15, 0.66, 0.65, 0, 0, 0, 1.2, 0.01, 1.5],
-            [0.15, -0.66, 0.65, 0, 0, 0, 1.2, 0.01, 1.5],
-            # back
-            [-0.41, 0, 0.65, 0, 0, 0, 0.01, 1.4, 1.5],
-            # front
-            [0.75, 0, 0.65, 0, 0, 0, 0.01, 1.4, 1.5],
-            # top
-            [0.2, 0, 1.35, 0, 0, 0, 1.2, 1.4, 0.01],
-            # bottom
-            [0.2, 0, -0.05, 0, 0, 0, 1.2, 1.4, 0.01]
         ])
 
 
@@ -114,14 +132,19 @@ if __name__ == '__main__':
     '''
     TODO: Fill in start and target joint positions 
     '''
-    if not args.map2:
+    if args.map3:
+        joints_start = np.array([0, 3*np.pi/8, 0, -np.pi / 8, 0, np.pi / 2, np.pi / 4])
+        joints_start[0] = -np.deg2rad(45)
+        joints_target = np.array([0, 0, 0, -np.pi / 4, 0, np.pi / 4, np.pi / 4])
+        joints_target[0] = -np.deg2rad(45)
+    elif args.map2:
+        joints_start = np.array([0, np.pi/6, 0, -2*np.pi / 3, 0, 5*np.pi / 6, np.pi / 4])
+        joints_target = np.array([0, 0, 0, -np.pi / 4, 0, np.pi / 4, np.pi / 4])
+    else:
         joints_start = fr.home_joints.copy()
         joints_start[0] = -np.deg2rad(45)
         joints_target = joints_start.copy()
         joints_target[0] = np.deg2rad(45)
-    else:
-        joints_start = np.array([0, np.pi/6, 0, -2*np.pi / 3, 0, 5*np.pi / 6, np.pi / 4])
-        joints_target = np.array([0, 0, 0, -np.pi / 4, 0, np.pi / 4, np.pi / 4])
 
     if args.rrt:
         print("RRT: RRT planner is selected!")
@@ -148,7 +171,6 @@ if __name__ == '__main__':
     while not rospy.is_shutdown():
         rate.sleep()
         joints = plan[i % len(plan)]
-        # joints = joints_start
         fr.publish_joints(joints)
         fr.publish_collision_boxes(joints)
         collision_boxes_publisher.publish_boxes(boxes)

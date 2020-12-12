@@ -5,6 +5,7 @@ import collections
 import heapq
 import pickle
 import itertools
+import random
 
 
 class SimpleGraph:
@@ -53,13 +54,15 @@ class PRM:
         self._fr = fr
         self._is_in_collision = is_in_collision
 
-        self._q_step_size = 0.1
+        self._q_step_size = 0.04
         self._radius = 0.5
         self._k = 15
         self._max_n_nodes = int(150000)
 
         self._project_step_size = 1e-1
         self._constraint_th = 1e-3
+
+        self._smoothed_nodes = 30
 
     def sample_valid_joints(self):
         """
@@ -113,28 +116,28 @@ class PRM:
         print("PRM: Graph is built successfully!")
 
     def smooth_path(self, path):
-        """
-        Use cut-triangle-edge scheme and interpolation to smooth the path
-        """
-        edge_list = collections.deque()
-        path_length = len(path)
-        for i in range(1, path_length - 1):
-            q0 = (path[i - 1] + path[i]) / 2
-            q1 = (path[i] + path[i + 1]) / 2
-            edge_list.append((q0, q1, i))
+        print("PRM: Start path smooth!")
+        def getDistance(p):
+            dist = 0
+            prev = p[0]
+            for q in p[1:]:
+                dist += np.linalg.norm(q - prev)
+                prev = q
+            return dist
 
-        rewire_count = 0
-        while edge_list:
-            q0, q1, id = edge_list.popleft()
-            if self._is_seg_valid(q0, q1):
-                path = path[:id + rewire_count] + [q0] + [q1] + path[id + 1 + rewire_count:]
-                rewire_count += 1
-        print("PRM: Number of rewired nodes is {}.".format(rewire_count))
+        for num_smoothed in range(self._smoothed_nodes):
+            i = random.randint(0, len(path) - 2)
+            j = random.randint(i + 1, len(path) - 1)
+            if self._is_seg_valid(path[i], path[j]):
+                if getDistance(path[i] + path[j]) < getDistance(path[i:j + 1]):
+                    path = path[:i + 1] + path[j:]
 
         # Interpolating between two nodes
-        path = [np.linspace(path[i], path[i + 1], int(np.linalg.norm(path[i + 1] - path[i]) / 0.01))
-                for i in range(len(path) - 1)]
+        path = [np.linspace(path[i], path[i + 1], int(np.linalg.norm(path[i + 1] - path[i]) / self._q_step_size)) for i in range(len(path) - 1)]
         path = list(itertools.chain.from_iterable(path))
+
+        print("PRM: Final path length after smooth is {}.".format(len(path)))
+
         return path
 
     def search(self, graph):
@@ -165,7 +168,6 @@ class PRM:
             neighbor_ids = graph.get_parent(cur_id)
             for next_id in neighbor_ids:
                 if next_id == graph.target_id:
-                    print("Path is Found!")
                     found_path = True
                     road_map[graph.target_id].parent = cur_id
                     break
@@ -191,9 +193,6 @@ class PRM:
 
             print("PRM: Found a path! Path length is {}. ".format(len(path)))
 
-            path = self.smooth_path(path)
-            print("PRM: Final path length after smmoth is {}.".format(len(path)))
-
         else:
             print('PRM: Was not able to find a path!')
 
@@ -213,8 +212,9 @@ class PRM:
                 pickle.dump(graph, f, -1)
                 print('PRM: Graph is saved!')
 
+        s = time()
         graph.start_id = graph.insert_new_node(q_start)
-        neighbor_ids = graph.get_neighbor_within_radius(q_start, 1.0)
+        neighbor_ids = graph.get_neighbor_within_radius(q_start, 1.2)  # 1.5 for map3
         print('PRM: Found neighbor {} with q_start'.format(len(neighbor_ids)))
         for neighbor_id in neighbor_ids:
             q_neighbor = graph.get_point(neighbor_id)
@@ -222,7 +222,7 @@ class PRM:
                 graph.add_edge(graph.start_id, neighbor_id)
 
         graph.target_id = graph.insert_new_node(q_target)
-        neighbor_ids = graph.get_neighbor_within_radius(q_target, 0.85)
+        neighbor_ids = graph.get_neighbor_within_radius(q_target, 0.85) # 1.5 for map3
         print('PRM: Found neighbor {} with q_target'.format(len(neighbor_ids)))
         for neighbor_id in neighbor_ids:
             q_neighbor = graph.get_point(neighbor_id)
@@ -232,7 +232,10 @@ class PRM:
         print('PRM: Number of nodes connected with start: {}'.format(len(graph.get_parent(graph.start_id))))
         print('PRM: Number of nodes connected with target: {}'.format(len(graph.get_parent(graph.target_id))))
 
+        print('PRM: Total number of nodes: {}'.format(len(graph)))
         path = self.search(graph)
+        path = self.smooth_path(path)
+        print('PRM: Found the path in {:.2f}s'.format(time() - s))
 
         return path
 
