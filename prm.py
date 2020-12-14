@@ -54,7 +54,7 @@ class PRM:
         self._fr = fr
         self._is_in_collision = is_in_collision
 
-        self._q_step_size = 0.04
+        self._q_step_size = 0.02
         self._radius = 0.5
         self._k = 15
         self._max_n_nodes = int(150000)
@@ -62,7 +62,7 @@ class PRM:
         self._project_step_size = 1e-1
         self._constraint_th = 1e-3
 
-        self._smoothed_nodes = 30
+        self._smoothed_nodes = 0
 
     def sample_valid_joints(self):
         """
@@ -178,7 +178,7 @@ class PRM:
                                           np.linalg.norm(graph.get_point(next_id) - graph.get_point(cur_id))
 
                     f_value = road_map[next_id].g + get_heuristic(graph, next_id, graph.target_id, use_heur=False)
-                    heapq.heappush(open_list, (-f_value, next_id))
+                    heapq.heappush(open_list, (f_value, next_id))
                     road_map[next_id].parent = cur_id
 
         path = []
@@ -200,7 +200,7 @@ class PRM:
 
     def plan(self, q_start, q_target, constraint=None, reuse_graph=False):
         if reuse_graph:
-            graph = pickle.load(open('graph.pickle', 'rb'))
+            graph = pickle.load(open('graph_map3.pickle', 'rb'))
             print("PRM: Reuse the graph.")
         else:
             graph = SimpleGraph(len(q_start), capacity=180000)
@@ -214,7 +214,7 @@ class PRM:
 
         s = time()
         graph.start_id = graph.insert_new_node(q_start)
-        neighbor_ids = graph.get_neighbor_within_radius(q_start, 1.2)  # 1.5 for map3
+        neighbor_ids = graph.get_neighbor_within_radius(q_start, 1.5)  # 1.5 for map3
         print('PRM: Found neighbor {} with q_start'.format(len(neighbor_ids)))
         for neighbor_id in neighbor_ids:
             q_neighbor = graph.get_point(neighbor_id)
@@ -222,7 +222,7 @@ class PRM:
                 graph.add_edge(graph.start_id, neighbor_id)
 
         graph.target_id = graph.insert_new_node(q_target)
-        neighbor_ids = graph.get_neighbor_within_radius(q_target, 0.85) # 1.5 for map3
+        neighbor_ids = graph.get_neighbor_within_radius(q_target, 1.5)  # 1.5 for map3
         print('PRM: Found neighbor {} with q_target'.format(len(neighbor_ids)))
         for neighbor_id in neighbor_ids:
             q_neighbor = graph.get_point(neighbor_id)

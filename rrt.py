@@ -43,7 +43,7 @@ class RRT:
         self._project_step_size = 1e-1  # Default:1e-1
         self._constraint_th = 1e-3  # Default: 1e-3
 
-        self._q_step_size = 0.02  # Default: 0.02
+        self._q_step_size = 0.02  # Default: 0.02, 0.045 for map2
         self._target_p = 0.2  # Default: 0.2
         self._max_n_nodes = int(1e5)
 
