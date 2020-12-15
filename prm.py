@@ -5,6 +5,7 @@ import collections
 import heapq
 import pickle
 import itertools
+import math
 
 
 class SimpleGraph:
@@ -53,8 +54,9 @@ class PRM:
         self._fr = fr
         self._is_in_collision = is_in_collision
 
-        self._q_step_size = 0.1
-        self._radius = 0.5
+        self._q_step_size = 0.08
+        self._joint_size = math.sqrt(0.2 ** 2 / 7) / 2
+        self._radius = 0.8
         self._k = 15
         self._max_n_nodes = int(150000)
 
@@ -67,6 +69,12 @@ class PRM:
         """
         q = np.random.random(self._fr.num_dof) * (self._fr.joint_limits_high - self._fr.joint_limits_low) + self._fr.joint_limits_low
         return q
+
+    def sample_near_joints(self, q):
+        q_near = q
+        for i in range(len(q)):
+            q_near[i] = np.random.random() * (self._joint_size * 2) + q[i] - self._joint_size
+        return q_near
 
     def _is_seg_valid(self, q0, q1):
         """
@@ -89,9 +97,13 @@ class PRM:
 
     def preprocess(self, graph, constraint=None):
         num_edges = 0
+        had_collision = False
         while len(graph) < self._max_n_nodes:
             # Sample valid joints
-            q_sample = self.sample_valid_joints()
+            if had_collision:
+                q_sample = self.sample_near_joints(q_new)
+            else:
+                q_sample = self.sample_valid_joints()
             # Project to constraint
             q_new = self.project_to_constraint(q_sample, constraint)
 
@@ -110,6 +122,9 @@ class PRM:
                             break
                 print('PRM: number of nodes: {}'.format(len(graph)))
                 print('PRM: number of edges {}'.format(num_edges))
+                had_collision = False
+            else:
+                had_collision = True
         print("PRM: Graph is built successfully!")
 
     def smooth_path(self, path):
@@ -235,10 +250,3 @@ class PRM:
         path = self.search(graph)
 
         return path
-
-
-
-
-
-
-
