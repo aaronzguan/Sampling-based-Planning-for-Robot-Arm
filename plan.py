@@ -7,6 +7,7 @@ from collision_boxes_publisher import CollisionBoxesPublisher
 from rrt import RRT
 from rrt_connect import RRTConnect
 from prm import PRM
+from ob_prm import OBPRM
 
 
 def str2bool(v):
@@ -26,6 +27,7 @@ if __name__ == '__main__':
     parser.add_argument('--rrt', '-rrt', type=str2bool, const=True, nargs='?', default=False, help="Use RRT?")
     parser.add_argument('--rrtc', '-rrtc', type=str2bool, const=True, nargs='?', default=False, help="Use RRT-Connect?")
     parser.add_argument('--prm', '-prm', type=str2bool, const=True, nargs='?', default=False, help="Use PRM?")
+    parser.add_argument('--obprm', '-obprm', type=str2bool, const=True, nargs='?', default=False, help="Use OBPRM?")
     parser.add_argument('--map2', '-map2', type=str2bool, const=True, nargs='?', default=False, help="Use map 2?")
     parser.add_argument('--reuse_graph', '-reuse_graph', type=str2bool, const=True, nargs='?', default=False, help="Reuse the graph for PRM?")
     args = parser.parse_args()
@@ -112,7 +114,7 @@ if __name__ == '__main__':
         return dist
 
     '''
-    TODO: Fill in start and target joint positions 
+    TODO: Fill in start and target joint positions
     '''
     if not args.map2:
         joints_start = fr.home_joints.copy()
@@ -132,9 +134,12 @@ if __name__ == '__main__':
     elif args.prm:
         print("PRM: PRM planner is selected!")
         planner = PRM(fr, is_in_collision)
+    elif args.obprm:
+        print("OB_PRM: OB_PRM planner is selected!")
+        planner = OBPRM(fr, is_in_collision)
 
     constraint = ee_upright_constraint
-    if args.prm:
+    if args.prm or args.obprm:
         plan = planner.plan(joints_start, joints_target, constraint, reuse_graph=args.reuse_graph)
     else:
         plan = planner.plan(joints_start, joints_target, constraint)
