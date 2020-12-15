@@ -11,6 +11,9 @@ class SimpleTree:
         self._parents_map = {}
         self._kd = KDTree(dim)
 
+    def __len__(self):
+        return len(self._kd)
+
     def insert_new_node(self, point, parent=None):
         node_id = self._kd.insert(point)
         self._parents_map[node_id] = parent
@@ -152,7 +155,7 @@ class RRTConnect:
             q_start_is_tree_0 = not q_start_is_tree_0
             tree_0, tree_1 = tree_1, tree_0
 
-        print('RRTC: {} nodes extended in {:.2f}s'.format(tree_0.get_num_nodes() + tree_1.get_num_nodes(), time() - s))
+        print('RRTC: {} nodes extended in {:.2f}s'.format(len(tree_0) + len(tree_1), time() - s))
 
         # if not q_start_is_tree_0:
         #     tree_0, tree_1 = tree_1, tree_0
