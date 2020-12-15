@@ -73,9 +73,9 @@ class OBPRM:
     def sample_near_joints(self, q):
         q_near = q
         for i in range(len(q)):
-            lower = max(self._fr.joint_limits_low, q[i] - self._joint_size)
-            upper = min(self._fr.joint_limits_high, q[i] + self._joint_size)
-            q_near[i] = np.random.random() * (uppwer - lower) + lower
+            lower = max(self._fr.joint_limits_low[i], q[i] - self._joint_size)
+            upper = min(self._fr.joint_limits_high[i], q[i] + self._joint_size)
+            q_near[i] = np.random.random() * (upper - lower) + lower
         return q_near
 
     def _is_seg_valid(self, q0, q1):
