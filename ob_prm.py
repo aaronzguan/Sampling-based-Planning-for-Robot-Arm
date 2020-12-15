@@ -55,7 +55,7 @@ class OBPRM:
         self._is_in_collision = is_in_collision
 
         self._q_step_size = 0.08
-        self._joint_size = math.sqrt(0.2 ** 2 / 7) / 2
+        self._joint_size = math.sqrt(0.04 ** 2 / 7) / 2
         self._radius = 0.8
         self._k = 15
         self._max_n_nodes = int(150000)
@@ -73,7 +73,9 @@ class OBPRM:
     def sample_near_joints(self, q):
         q_near = q
         for i in range(len(q)):
-            q_near[i] = np.random.random() * (self._joint_size * 2) + q[i] - self._joint_size
+            lower = max(self._fr.joint_limits_low, q[i] - self._joint_size)
+            upper = min(self._fr.joint_limits_high, q[i] + self._joint_size)
+            q_near[i] = np.random.random() * (uppwer - lower) + lower
         return q_near
 
     def _is_seg_valid(self, q0, q1):
