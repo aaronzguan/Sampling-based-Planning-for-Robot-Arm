@@ -55,8 +55,8 @@ class OBPRM:
         self._is_in_collision = is_in_collision
 
         self._q_step_size = 0.08
-        self._joint_size = math.sqrt(0.04 ** 2 / 7) / 2
-        self._radius = 0.8
+        self._joint_size = math.sqrt(0.03 ** 2 / 7) / 2
+        self._radius = 0.5
         self._k = 15
         self._max_n_nodes = int(150000)
 
@@ -125,8 +125,10 @@ class OBPRM:
                 print('OB_PRM: number of nodes: {}'.format(len(graph)))
                 print('OB_PRM: number of edges {}'.format(num_edges))
                 had_collision = False
-            else:
+            elif np.random.random(1) < 0.7:
                 had_collision = True
+            else:
+                had_collision = False
         print("OB_PRM: Graph is built successfully!")
 
     def smooth_path(self, path):
@@ -231,7 +233,7 @@ class OBPRM:
                 print('OB_PRM: Graph is saved!')
 
         graph.start_id = graph.insert_new_node(q_start)
-        neighbor_ids = graph.get_neighbor_within_radius(q_start, 1.0)
+        neighbor_ids = graph.get_neighbor_within_radius(q_start, 2.0)
         print('OB_PRM: Found neighbor {} with q_start'.format(len(neighbor_ids)))
         for neighbor_id in neighbor_ids:
             q_neighbor = graph.get_point(neighbor_id)
@@ -239,7 +241,7 @@ class OBPRM:
                 graph.add_edge(graph.start_id, neighbor_id)
 
         graph.target_id = graph.insert_new_node(q_target)
-        neighbor_ids = graph.get_neighbor_within_radius(q_target, 0.85)
+        neighbor_ids = graph.get_neighbor_within_radius(q_target, 2.0)
         print('OB_PRM: Found neighbor {} with q_target'.format(len(neighbor_ids)))
         for neighbor_id in neighbor_ids:
             q_neighbor = graph.get_point(neighbor_id)
