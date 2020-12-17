@@ -6,6 +6,7 @@ import heapq
 import pickle
 import itertools
 import math
+import random
 
 
 class SimpleGraph:
@@ -55,13 +56,15 @@ class OBPRM:
         self._is_in_collision = is_in_collision
 
         self._q_step_size = 0.08
-        self._joint_size = math.sqrt(0.2 ** 2 / 7) / 2
-        self._radius = 0.8
-        self._k = 15
-        self._max_n_nodes = int(150000)
+        self._joint_size = math.sqrt(0.04 ** 2 / 7) / 2
+        self._radius = 0.7
+        self._k = 8
+        self._max_n_nodes = int(100000)
 
         self._project_step_size = 1e-1
         self._constraint_th = 1e-3
+
+        self._smoothed_nodes = 0
 
     def sample_valid_joints(self):
         """
@@ -73,7 +76,9 @@ class OBPRM:
     def sample_near_joints(self, q):
         q_near = q
         for i in range(len(q)):
-            q_near[i] = np.random.random() * (self._joint_size * 2) + q[i] - self._joint_size
+            lower = max(self._fr.joint_limits_low[i], q[i] - self._joint_size)
+            upper = min(self._fr.joint_limits_high[i], q[i] + self._joint_size)
+            q_near[i] = np.random.random() * (upper - lower) + lower
         return q_near
 
     def _is_seg_valid(self, q0, q1):
@@ -98,9 +103,10 @@ class OBPRM:
     def preprocess(self, graph, constraint=None):
         num_edges = 0
         had_collision = False
+        sample_count = 0
         while len(graph) < self._max_n_nodes:
             # Sample valid joints
-            if had_collision:
+            if had_collision and sample_count < 80:
                 q_sample = self.sample_near_joints(q_new)
             else:
                 q_sample = self.sample_valid_joints()
@@ -109,8 +115,10 @@ class OBPRM:
 
             # Add the new node to the graph if it is collision free
             if not self._is_in_collision(q_new):
+                sample_count = 0
                 node_id = graph.insert_new_node(q_new)
                 neighbor_ids = graph.get_neighbor_within_radius(q_new, self._radius)
+                print('OB_PRM: Number of neighbors: {}'.format(len(neighbor_ids)))
                 num_valid_neighbor = 0
                 for neighbor_id in neighbor_ids:
                     q_neighbor = graph.get_point(neighbor_id)
@@ -124,32 +132,35 @@ class OBPRM:
                 print('OB_PRM: number of edges {}'.format(num_edges))
                 had_collision = False
             else:
+                sample_count += 1
                 had_collision = True
         print("OB_PRM: Graph is built successfully!")
 
     def smooth_path(self, path):
-        """
-        Use cut-triangle-edge scheme and interpolation to smooth the path
-        """
-        edge_list = collections.deque()
-        path_length = len(path)
-        for i in range(1, path_length - 1):
-            q0 = (path[i - 1] + path[i]) / 2
-            q1 = (path[i] + path[i + 1]) / 2
-            edge_list.append((q0, q1, i))
+        print("OB_PRM: Start path smooth!")
 
-        rewire_count = 0
-        while edge_list:
-            q0, q1, id = edge_list.popleft()
-            if self._is_seg_valid(q0, q1):
-                path = path[:id + rewire_count] + [q0] + [q1] + path[id + 1 + rewire_count:]
-                rewire_count += 1
-        print("OB_PRM: Number of rewired nodes is {}.".format(rewire_count))
+        def getDistance(p):
+            dist = 0
+            prev = p[0]
+            for q in p[1:]:
+                dist += np.linalg.norm(q - prev)
+                prev = q
+            return dist
+
+        for num_smoothed in range(self._smoothed_nodes):
+            i = random.randint(0, len(path) - 2)
+            j = random.randint(i + 1, len(path) - 1)
+            if self._is_seg_valid(path[i], path[j]):
+                if getDistance(path[i] + path[j]) < getDistance(path[i:j + 1]):
+                    path = path[:i + 1] + path[j:]
 
         # Interpolating between two nodes
-        path = [np.linspace(path[i], path[i + 1], int(np.linalg.norm(path[i + 1] - path[i]) / 0.01))
-                for i in range(len(path) - 1)]
+        path = [np.linspace(path[i], path[i + 1], int(np.linalg.norm(path[i + 1] - path[i]) / self._q_step_size)) for i
+                in range(len(path) - 1)]
         path = list(itertools.chain.from_iterable(path))
+
+        print("OB_PRM: Final path length after smooth is {}.".format(len(path)))
+
         return path
 
     def search(self, graph):
@@ -191,7 +202,7 @@ class OBPRM:
                                           np.linalg.norm(graph.get_point(next_id) - graph.get_point(cur_id))
 
                     f_value = road_map[next_id].g + get_heuristic(graph, next_id, graph.target_id, use_heur=False)
-                    heapq.heappush(open_list, (-f_value, next_id))
+                    heapq.heappush(open_list, (f_value, next_id))
                     road_map[next_id].parent = cur_id
 
         path = []
@@ -206,9 +217,6 @@ class OBPRM:
 
             print("OB_PRM: Found a path! Path length is {}. ".format(len(path)))
 
-            path = self.smooth_path(path)
-            print("OB_PRM: Final path length after smmoth is {}.".format(len(path)))
-
         else:
             print('OB_PRM: Was not able to find a path!')
 
@@ -216,7 +224,7 @@ class OBPRM:
 
     def plan(self, q_start, q_target, constraint=None, reuse_graph=False):
         if reuse_graph:
-            graph = pickle.load(open('graph.pickle', 'rb'))
+            graph = pickle.load(open('graph_obprm.pickle', 'rb'))
             print("OB_PRM: Reuse the graph.")
         else:
             graph = SimpleGraph(len(q_start), capacity=180000)
@@ -224,12 +232,13 @@ class OBPRM:
             self.preprocess(graph, constraint)
             print('OB_PRM: Build the graph in {:.2f}s'.format(time() - s))
 
-            with open('graph.pickle', 'wb') as f:
+            with open('graph_obprm.pickle', 'wb') as f:
                 pickle.dump(graph, f, -1)
                 print('OB_PRM: Graph is saved!')
 
+        s = time()
         graph.start_id = graph.insert_new_node(q_start)
-        neighbor_ids = graph.get_neighbor_within_radius(q_start, 1.0)
+        neighbor_ids = graph.get_neighbor_within_radius(q_start, 1.4)
         print('OB_PRM: Found neighbor {} with q_start'.format(len(neighbor_ids)))
         for neighbor_id in neighbor_ids:
             q_neighbor = graph.get_point(neighbor_id)
@@ -237,7 +246,7 @@ class OBPRM:
                 graph.add_edge(graph.start_id, neighbor_id)
 
         graph.target_id = graph.insert_new_node(q_target)
-        neighbor_ids = graph.get_neighbor_within_radius(q_target, 0.85)
+        neighbor_ids = graph.get_neighbor_within_radius(q_target, 1.0)
         print('OB_PRM: Found neighbor {} with q_target'.format(len(neighbor_ids)))
         for neighbor_id in neighbor_ids:
             q_neighbor = graph.get_point(neighbor_id)
@@ -247,6 +256,9 @@ class OBPRM:
         print('OB_PRM: Number of nodes connected with start: {}'.format(len(graph.get_parent(graph.start_id))))
         print('OB_PRM: Number of nodes connected with target: {}'.format(len(graph.get_parent(graph.target_id))))
 
+        print('PRM: Total number of nodes: {}'.format(len(graph)))
         path = self.search(graph)
+        path = self.smooth_path(path)
+        print('PRM: Found the path in {:.2f}s'.format(time() - s))
 
         return path
