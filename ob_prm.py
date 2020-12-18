@@ -222,9 +222,16 @@ class OBPRM:
 
         return path
 
-    def plan(self, q_start, q_target, constraint=None, reuse_graph=False):
-        if reuse_graph:
-            graph = pickle.load(open('graph_obprm.pickle', 'rb'))
+    def plan(self, q_start, q_target, constraint=None, args=None):
+        if args.map3:
+            graph_name = 'graph_obprm_map3.pickle'
+        elif args.map2:
+            graph_name = 'graph_obprm_map2.pickle'
+        else:
+            graph_name = 'graph_obprm_map1.pickle'
+
+        if args.reuse_graph:
+            graph = pickle.load(open(graph_name, 'rb'))
             print("OB_PRM: Reuse the graph.")
         else:
             graph = SimpleGraph(len(q_start), capacity=180000)
@@ -232,13 +239,13 @@ class OBPRM:
             self.preprocess(graph, constraint)
             print('OB_PRM: Build the graph in {:.2f}s'.format(time() - s))
 
-            with open('graph_obprm.pickle', 'wb') as f:
+            with open(graph_name, 'wb') as f:
                 pickle.dump(graph, f, -1)
                 print('OB_PRM: Graph is saved!')
 
         s = time()
         graph.start_id = graph.insert_new_node(q_start)
-        neighbor_ids = graph.get_neighbor_within_radius(q_start, 1.4)
+        neighbor_ids = graph.get_neighbor_within_radius(q_start, 1.0)
         print('OB_PRM: Found neighbor {} with q_start'.format(len(neighbor_ids)))
         for neighbor_id in neighbor_ids:
             q_neighbor = graph.get_point(neighbor_id)
@@ -256,9 +263,9 @@ class OBPRM:
         print('OB_PRM: Number of nodes connected with start: {}'.format(len(graph.get_parent(graph.start_id))))
         print('OB_PRM: Number of nodes connected with target: {}'.format(len(graph.get_parent(graph.target_id))))
 
-        print('PRM: Total number of nodes: {}'.format(len(graph)))
+        print('OB_PRM: Total number of nodes: {}'.format(len(graph)))
         path = self.search(graph)
         path = self.smooth_path(path)
-        print('PRM: Found the path in {:.2f}s'.format(time() - s))
+        print('OB_PRM: Found the path in {:.2f}s'.format(time() - s))
 
         return path

@@ -18,16 +18,36 @@ For Ubuntu 16.04:
 
 5. Run the RRT planner:
 
-   `python3 plan.py --rrt` or `python3 plan.py --rrt --map2` for using the second map.
+   `python3 plan.py --rrt` or `python3 plan.py --rrt --map2` for using the second map， or `python3 plan.py --rrt --map3` for using the third map.
 
    Run the CBIRRT planner:
 
-   `python3 plan.py --rrtc` or `python3 plan.py --rrtc --map2` for using the second map.
+   `python3 plan.py --rrtc` or `python3 plan.py --rrtc --map2` for using the second map, or `python3 plan.py --rrtc --map3` for using the third map.
 
    Run the PRM planner:
 
-   `python3 plan.py --prm` or `python3 plan.py --prm --map2` for using the second map.
+   `python3 plan.py --prm` or `python3 plan.py --prm --map2` for using the second map, or `python3 plan.py --prm --map3` for using the third map.
 
    If reusing the graph created before:
 
-   `python3 plan.py --prm --reuse_graph`
+   `python3 plan.py --prm [--map2/map3]--reuse_graph`
+
+   Run the OBPRM planner:
+
+   `python3 plan.py --obprm` or `python3 plan.py --obprm --map2` for using the second map, or `python3 plan.py --obprm --map3` for using the third map.
+
+   If reusing the graph created before:
+
+   `python3 plan.py --obprm [--map2/map3]--reuse_graph`
+
+### Environment
+
+We designed three problems for the robot arm, in which it needs to move from a start position to agiven goal position while avoiding obstacles. 
+
+*Scene 1*: ![Scene 1](images/scene1.JPG)
+
+*Scene 2*: ![Scene 2](images/scene2.JPG)
+
+*Scene 3*: ![Scene 3](images/scene3.JPG)
+
+

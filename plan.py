@@ -163,7 +163,7 @@ if __name__ == '__main__':
 
     constraint = ee_upright_constraint
     if args.prm or args.obprm:
-        plan = planner.plan(joints_start, joints_target, constraint, reuse_graph=args.reuse_graph)
+        plan = planner.plan(joints_start, joints_target, constraint, args)
     else:
         plan = planner.plan(joints_start, joints_target, constraint)
 

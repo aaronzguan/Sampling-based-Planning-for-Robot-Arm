@@ -198,9 +198,16 @@ class PRM:
 
         return path
 
-    def plan(self, q_start, q_target, constraint=None, reuse_graph=False):
-        if reuse_graph:
-            graph = pickle.load(open('graph_map3.pickle', 'rb'))
+    def plan(self, q_start, q_target, constraint=None, args=None):
+        if args.map3:
+            graph_name = 'graph_map3.pickle'
+        elif args.map2:
+            graph_name = 'graph_map2.pickle'
+        else:
+            graph_name = 'graph_map1.pickle'
+
+        if args.reuse_graph:
+            graph = pickle.load(open(graph_name, 'rb'))
             print("PRM: Reuse the graph.")
         else:
             graph = SimpleGraph(len(q_start), capacity=180000)
@@ -208,7 +215,7 @@ class PRM:
             self.preprocess(graph, constraint)
             print('PRM: Build the graph in {:.2f}s'.format(time() - s))
 
-            with open('graph.pickle', 'wb') as f:
+            with open(graph_name, 'wb') as f:
                 pickle.dump(graph, f, -1)
                 print('PRM: Graph is saved!')
 
