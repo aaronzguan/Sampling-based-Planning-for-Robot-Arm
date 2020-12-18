@@ -55,16 +55,16 @@ class OBPRM:
         self._fr = fr
         self._is_in_collision = is_in_collision
 
-        self._q_step_size = 0.08
+        self._q_step_size = 0.02
         self._joint_size = math.sqrt(0.04 ** 2 / 7) / 2
         self._radius = 0.7
         self._k = 8
-        self._max_n_nodes = int(100000)
+        self._max_n_nodes = int(150000)
 
         self._project_step_size = 1e-1
         self._constraint_th = 1e-3
 
-        self._smoothed_nodes = 0
+        self._smoothed_nodes = 60
 
     def sample_valid_joints(self):
         """
