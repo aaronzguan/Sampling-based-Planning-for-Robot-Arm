@@ -50,4 +50,9 @@ We designed three problems for the robot arm, in which it needs to move from a s
 
 *Scene 3*: ![Scene 3](images/scene3.JPG)
 
+### Video Demo
+
+[Watch the video](https://youtu.be/d0d5chidEpo)
+
+
 
